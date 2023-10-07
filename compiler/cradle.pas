@@ -3,6 +3,7 @@ program Cradle;
 {--------------------------------------------------------------}
 { Constant Declarations }
 const TAB = ^I;
+const CR = ^M;
 {--------------------------------------------------------------}
 { Variable Declarations }
 var Look: char;
@@ -88,12 +89,34 @@ procedure Init;
 begin
     GetChar;
 end;
-{--------------------------------------------------------------}
+{---------------------------------------------------------------}
+{ Parse and Translate an Identifier }
+procedure Ident;
+var Name: char;
+begin
+    Name := GetName;
+    if Look = '(' then begin
+        Match('(');
+        Match(')');
+        EmitLn('BSR ' + Name);
+        end
+    else
+        EmitLn('MOVE ' + Name + '(PC),D0')
+end;
 {---------------------------------------------------------------}
 { Parse and Translate a Math Factor }
+procedure Expression; Forward;
 procedure Factor;
 begin
-    EmitLn('MOVE #' + GetNum + ',D0')
+    if Look = '(' then begin
+        Match('(');
+        Expression;
+        Match(')');
+        end
+    else if IsAlpha(Look) then 
+        Ident
+    else 
+        EmitLn('MOVE #' + GetNum + ',D0');
 end;
 {--------------------------------------------------------------}
 { Recognize and Translate a Multiply }
@@ -144,15 +167,26 @@ begin
     EmitLn('NEG D0');
 end;
 {---------------------------------------------------------------}
+{ Recognize an Addop }
+{ refactored the addop check into a function}
+// fermato a pag.23
+function IsAddop(c: char): boolean;
+begin
+    IsAddop := c in ['+', '-'];
+end;
+{--------------------------------------------------------------}
 { Parse and Translate an Expression }
 procedure Expression;
 begin
-    Term;
-    while Look in ['+', '-'] do begin
+    if IsAddop(Look) then
+        EmitLn('CLR D0')
+    else
+        Term;
+    while IsAddop(Look) do begin
         EmitLn('MOVE D0,-(SP)');
         case Look of
-        '+': Add;
-        '-': Subtract;
+            '+': Add;
+            '-': Subtract;
         else Expected('Addop');
         end;
     end;
@@ -162,5 +196,6 @@ end;
 begin
     Init;
     Expression;
+    if Look <> CR then Expected('Newline');
 end.
 {--------------------------------------------------------------}
